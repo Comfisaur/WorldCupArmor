@@ -1,0 +1,16 @@
+name: WorldCupArmor
+version: '${project.version}'
+main: dev.comfi.worldcuparmor.WorldCupArmorPlugin
+api-version: '1.21'
+author: comfi
+description: Shows netherite armor as team colored leather armor to other players.
+depend: [ProtocolLib]
+commands:
+  worldcuparmor:
+    description: Opens the WorldCupArmor admin GUI.
+    aliases: [wca, armorgui]
+    permission: worldcuparmor.admin
+permissions:
+  worldcuparmor.admin:
+    description: Allows opening the WorldCupArmor admin GUI.
+    default: op

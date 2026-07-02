@@ -1,0 +1,120 @@
+package dev.comfi.worldcuparmor;
+
+import org.bukkit.Bukkit;
+import org.bukkit.Color;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.scoreboard.Team;
+
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+
+public final class DisguiseService implements Listener {
+
+    private static final List<EquipmentSlot> ARMOR_SLOTS =
+            List.of(EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET);
+
+    private final WorldCupArmorPlugin plugin;
+    private final TeamColorManager colors;
+    private final Map<Integer, Map<EquipmentSlot, Color>> entityColors = new ConcurrentHashMap<>();
+    private BukkitTask task;
+
+    public DisguiseService(WorldCupArmorPlugin plugin, TeamColorManager colors) {
+        this.plugin = plugin;
+        this.colors = colors;
+    }
+
+    public void start() {
+        task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
+    }
+
+    public void stop() {
+        if (task != null) {
+            task.cancel();
+        }
+        entityColors.clear();
+    }
+
+    public Map<EquipmentSlot, Color> colorsFor(int entityId) {
+        return entityColors.get(entityId);
+    }
+
+    private Map<EquipmentSlot, Color> computeColors(Player player) {
+        Team team = Bukkit.getScoreboardManager().getMainScoreboard().getEntryTeam(player.getName());
+        return team == null ? Map.of() : colors.pieces(team.getName());
+    }
+
+    private void tick() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            Map<EquipmentSlot, Color> current = computeColors(player);
+            Map<EquipmentSlot, Color> previous = entityColors.get(player.getEntityId());
+            if (!Objects.equals(current.isEmpty() ? null : current, previous)) {
+                refresh(player);
+            }
+        }
+    }
+
+    public void refresh(Player player) {
+        Map<EquipmentSlot, Color> pieces = computeColors(player);
+        if (pieces.isEmpty()) {
+            entityColors.remove(player.getEntityId());
+        } else {
+            entityColors.put(player.getEntityId(), pieces);
+        }
+        Map<EquipmentSlot, ItemStack> equipment = new EnumMap<>(EquipmentSlot.class);
+        for (EquipmentSlot slot : ARMOR_SLOTS) {
+            ItemStack item = player.getInventory().getItem(slot);
+            equipment.put(slot, item == null ? new ItemStack(Material.AIR) : item.clone());
+        }
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            if (viewer.equals(player)) {
+                continue;
+            }
+            if (!viewer.getWorld().equals(player.getWorld())) {
+                continue;
+            }
+            if (!viewer.canSee(player)) {
+                continue;
+            }
+            viewer.sendEquipmentChange(player, equipment);
+        }
+    }
+
+    public void refreshTeam(String teamName) {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            Team team = Bukkit.getScoreboardManager().getMainScoreboard().getEntryTeam(player.getName());
+            if (team != null && team.getName().equals(teamName)) {
+                refresh(player);
+            }
+        }
+    }
+
+    public void refreshAll() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            refresh(player);
+        }
+    }
+
+    @EventHandler
+    public void onJoin(PlayerJoinEvent event) {
+        Map<EquipmentSlot, Color> pieces = computeColors(event.getPlayer());
+        if (!pieces.isEmpty()) {
+            entityColors.put(event.getPlayer().getEntityId(), pieces);
+        }
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        entityColors.remove(event.getPlayer().getEntityId());
+    }
+}
