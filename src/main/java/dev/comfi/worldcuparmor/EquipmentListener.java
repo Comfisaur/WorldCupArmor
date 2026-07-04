@@ -7,11 +7,8 @@ import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.wrappers.EnumWrappers;
 import com.comphenix.protocol.wrappers.Pair;
-import org.bukkit.Material;
 import org.bukkit.inventory.EquipmentSlot;
-import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ColorableArmorMeta;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,7 +42,7 @@ public final class EquipmentListener extends PacketAdapter {
         boolean changed = false;
         for (Pair<EnumWrappers.ItemSlot, ItemStack> pair : pairs) {
             ArmorStyle style = styleFor(pieces, pair.getFirst());
-            ItemStack disguised = style == null ? null : disguise(pair.getSecond(), style);
+            ItemStack disguised = style == null ? null : DisguiseService.disguiseItem(pair.getSecond(), style);
             if (disguised == null) {
                 rewritten.add(pair);
             } else {
@@ -71,31 +68,4 @@ public final class EquipmentListener extends PacketAdapter {
         };
     }
 
-    private ItemStack disguise(ItemStack item, ArmorStyle style) {
-        if (item == null || style.color() == null) {
-            return null;
-        }
-        Material leather = switch (item.getType()) {
-            case NETHERITE_HELMET -> Material.LEATHER_HELMET;
-            case NETHERITE_CHESTPLATE -> Material.LEATHER_CHESTPLATE;
-            case NETHERITE_LEGGINGS -> Material.LEATHER_LEGGINGS;
-            case NETHERITE_BOOTS -> Material.LEATHER_BOOTS;
-            default -> null;
-        };
-        if (leather == null) {
-            return null;
-        }
-        ItemStack fake = new ItemStack(leather);
-        ColorableArmorMeta meta = (ColorableArmorMeta) fake.getItemMeta();
-        meta.setColor(style.color());
-        if (style.hasTrim()) {
-            meta.setTrim(style.trim());
-        }
-        meta.addItemFlags(ItemFlag.HIDE_DYE, ItemFlag.HIDE_ARMOR_TRIM);
-        if (!item.getEnchantments().isEmpty()) {
-            meta.setEnchantmentGlintOverride(true);
-        }
-        fake.setItemMeta(meta);
-        return fake;
-    }
 }

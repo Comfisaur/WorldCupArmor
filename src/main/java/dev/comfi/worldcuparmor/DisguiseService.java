@@ -1,5 +1,6 @@
 package dev.comfi.worldcuparmor;
 
+import com.destroystokyo.paper.event.player.PlayerArmorChangeEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -8,7 +9,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ColorableArmorMeta;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.scoreboard.Team;
 
@@ -63,6 +66,39 @@ public final class DisguiseService implements Listener {
         }
     }
 
+    /**
+     * Builds the item other players should see for this piece, or null when
+     * the real item is not disguisable. Used both here and for rewriting the
+     * natural equipment packets in {@link EquipmentListener}.
+     */
+    static ItemStack disguiseItem(ItemStack item, ArmorStyle style) {
+        if (item == null || style.color() == null) {
+            return null;
+        }
+        Material leather = switch (item.getType()) {
+            case NETHERITE_HELMET -> Material.LEATHER_HELMET;
+            case NETHERITE_CHESTPLATE -> Material.LEATHER_CHESTPLATE;
+            case NETHERITE_LEGGINGS -> Material.LEATHER_LEGGINGS;
+            case NETHERITE_BOOTS -> Material.LEATHER_BOOTS;
+            default -> null;
+        };
+        if (leather == null) {
+            return null;
+        }
+        ItemStack fake = new ItemStack(leather);
+        ColorableArmorMeta meta = (ColorableArmorMeta) fake.getItemMeta();
+        meta.setColor(style.color());
+        if (style.hasTrim()) {
+            meta.setTrim(style.trim());
+        }
+        meta.addItemFlags(ItemFlag.HIDE_DYE, ItemFlag.HIDE_ARMOR_TRIM);
+        if (!item.getEnchantments().isEmpty()) {
+            meta.setEnchantmentGlintOverride(true);
+        }
+        fake.setItemMeta(meta);
+        return fake;
+    }
+
     public void refresh(Player player) {
         Map<EquipmentSlot, ArmorStyle> pieces = computeStyles(player);
         if (pieces.isEmpty()) {
@@ -70,10 +106,21 @@ public final class DisguiseService implements Listener {
         } else {
             entityStyles.put(player.getEntityId(), pieces);
         }
+        // Send the disguised items directly instead of counting on the packet
+        // listener to rewrite them, so viewers update without relogging.
+        boolean active = colors.isEnabled();
         Map<EquipmentSlot, ItemStack> equipment = new EnumMap<>(EquipmentSlot.class);
         for (EquipmentSlot slot : ARMOR_SLOTS) {
             ItemStack item = player.getInventory().getItem(slot);
-            equipment.put(slot, item == null ? new ItemStack(Material.AIR) : item.clone());
+            ItemStack shown = item == null ? new ItemStack(Material.AIR) : item.clone();
+            ArmorStyle style = pieces.get(slot);
+            if (active && style != null) {
+                ItemStack disguised = disguiseItem(shown, style);
+                if (disguised != null) {
+                    shown = disguised;
+                }
+            }
+            equipment.put(slot, shown);
         }
         for (Player viewer : Bukkit.getOnlinePlayers()) {
             if (viewer.equals(player)) {
@@ -102,6 +149,11 @@ public final class DisguiseService implements Listener {
         for (Player player : Bukkit.getOnlinePlayers()) {
             refresh(player);
         }
+    }
+
+    @EventHandler
+    public void onArmorChange(PlayerArmorChangeEvent event) {
+        refresh(event.getPlayer());
     }
 
     @EventHandler

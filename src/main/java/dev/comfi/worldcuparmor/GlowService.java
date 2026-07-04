@@ -83,15 +83,21 @@ public final class GlowService implements Listener {
     }
 
     /**
-     * Re-sends every other player's flags byte to this viewer. The packet runs
-     * through {@link GlowListener}, so this both applies and clears the glow.
+     * Re-sends every other player's flags byte to this viewer, with the glow
+     * bit already applied when the viewer should see it, so this both applies
+     * and clears the glow without relying on packet interception.
      */
     public void refreshViewer(Player viewer) {
+        boolean sees = viewer.getGameMode() == GameMode.SPECTATOR && plugin.colors().isEnabled();
         for (Player target : Bukkit.getOnlinePlayers()) {
             if (target.equals(viewer) || !target.getWorld().equals(viewer.getWorld())) {
                 continue;
             }
-            sendFlags(viewer, target, baseFlags(target));
+            byte flags = baseFlags(target);
+            if (sees && glowing.contains(target.getEntityId())) {
+                flags |= GLOWING_BIT;
+            }
+            sendFlags(viewer, target, flags);
         }
     }
 
