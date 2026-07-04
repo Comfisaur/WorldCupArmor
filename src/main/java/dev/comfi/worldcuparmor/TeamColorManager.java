@@ -23,6 +23,7 @@ public final class TeamColorManager {
 
     private final WorldCupArmorPlugin plugin;
     private final Map<String, Map<EquipmentSlot, ArmorStyle>> teamStyles = new ConcurrentHashMap<>();
+    private final Map<String, String> teamFlags = new ConcurrentHashMap<>();
     private volatile boolean enabled = true;
 
     public TeamColorManager(WorldCupArmorPlugin plugin) {
@@ -104,6 +105,7 @@ public final class TeamColorManager {
         config.options().pathSeparator('\u0001');
         enabled = config.getBoolean("enabled", true);
         teamStyles.clear();
+        teamFlags.clear();
         ConfigurationSection teams = config.getConfigurationSection("teams");
         if (teams == null) {
             return;
@@ -121,6 +123,13 @@ public final class TeamColorManager {
                 ConfigurationSection section = teams.getConfigurationSection(team);
                 if (section != null) {
                     for (String key : section.getKeys(false)) {
+                        if (key.equalsIgnoreCase("flag")) {
+                            String flag = section.getString(key);
+                            if (flag != null && !flag.isBlank()) {
+                                teamFlags.put(team, flag.toLowerCase(Locale.ROOT));
+                            }
+                            continue;
+                        }
                         EquipmentSlot slot = slotFromKey(key);
                         ArmorStyle style = slot == null ? ArmorStyle.EMPTY : parseStyle(section, key, team);
                         if (slot != null && !style.isEmpty()) {
@@ -142,19 +151,26 @@ public final class TeamColorManager {
         config.options().pathSeparator('\u0001');
         config.set("enabled", enabled);
         ConfigurationSection teams = config.createSection("teams");
-        for (Map.Entry<String, Map<EquipmentSlot, ArmorStyle>> team : teamStyles.entrySet()) {
-            ConfigurationSection section = teams.createSection(team.getKey());
-            for (Map.Entry<EquipmentSlot, ArmorStyle> piece : team.getValue().entrySet()) {
-                ArmorStyle style = piece.getValue();
-                String hex = style.color() == null ? null : String.format("%06X", style.color().asRGB());
-                if (style.hasTrim()) {
-                    ConfigurationSection entry = section.createSection(key(piece.getKey()));
-                    entry.set("color", hex);
-                    entry.set("trim-pattern", style.pattern().getKey().getKey());
-                    entry.set("trim-material", style.material().getKey().getKey());
-                } else {
-                    section.set(key(piece.getKey()), hex);
+        for (String team : configuredTeams()) {
+            ConfigurationSection section = teams.createSection(team);
+            Map<EquipmentSlot, ArmorStyle> styles = teamStyles.get(team);
+            if (styles != null) {
+                for (Map.Entry<EquipmentSlot, ArmorStyle> piece : styles.entrySet()) {
+                    ArmorStyle style = piece.getValue();
+                    String hex = style.color() == null ? null : String.format("%06X", style.color().asRGB());
+                    if (style.hasTrim()) {
+                        ConfigurationSection entry = section.createSection(key(piece.getKey()));
+                        entry.set("color", hex);
+                        entry.set("trim-pattern", style.pattern().getKey().getKey());
+                        entry.set("trim-material", style.material().getKey().getKey());
+                    } else {
+                        section.set(key(piece.getKey()), hex);
+                    }
                 }
+            }
+            String flag = teamFlags.get(team);
+            if (flag != null) {
+                section.set("flag", flag);
             }
         }
         plugin.saveConfig();
@@ -238,8 +254,24 @@ public final class TeamColorManager {
         save();
     }
 
+    public String flag(String team) {
+        return team == null ? null : teamFlags.get(team);
+    }
+
+    public void setFlag(String team, String flag) {
+        teamFlags.put(team, flag.toLowerCase(Locale.ROOT));
+        save();
+    }
+
+    public void removeFlag(String team) {
+        teamFlags.remove(team);
+        save();
+    }
+
     public Set<String> configuredTeams() {
-        return Set.copyOf(teamStyles.keySet());
+        Set<String> names = new java.util.HashSet<>(teamStyles.keySet());
+        names.addAll(teamFlags.keySet());
+        return Set.copyOf(names);
     }
 
     public boolean isEnabled() {

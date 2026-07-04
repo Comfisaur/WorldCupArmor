@@ -1,2 +1,5 @@
 enabled: true
+# MiniMessage format for the team prefix when a flag is set.
+# <flag> is the team's flag sprite, <flag:name> inserts any flag.
+flag-prefix: '<flag> '
 teams: {}

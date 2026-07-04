@@ -1,6 +1,7 @@
 package dev.comfi.worldcuparmor.gui;
 
 import dev.comfi.worldcuparmor.ArmorStyle;
+import dev.comfi.worldcuparmor.FlagService;
 import dev.comfi.worldcuparmor.WorldCupArmorPlugin;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -103,6 +104,20 @@ public final class PieceMenu implements Menu {
                 Component.text("All pieces", NamedTextColor.GOLD),
                 List.of(Component.text("Click to dye all four pieces at once", NamedTextColor.YELLOW),
                         Component.text("Shift click to trim all four pieces at once", NamedTextColor.AQUA))));
+        String flag = plugin.colors().flag(team);
+        List<Component> flagLore = new ArrayList<>();
+        if (flag == null) {
+            flagLore.add(Component.text("No flag set", NamedTextColor.GRAY));
+            flagLore.add(Component.text("Left click to pick a country", NamedTextColor.YELLOW));
+        } else {
+            flagLore.add(Component.text("Flag: ", NamedTextColor.GRAY)
+                    .append(plugin.flags().sprite(flag))
+                    .append(Component.text(" " + FlagService.pretty(flag), NamedTextColor.WHITE)));
+            flagLore.add(Component.text("Left click to change the country", NamedTextColor.YELLOW));
+            flagLore.add(Component.text("Right click to remove the flag", NamedTextColor.RED));
+        }
+        inventory.setItem(24, GuiItems.item(Material.WHITE_BANNER,
+                Component.text("Country flag", NamedTextColor.GOLD), flagLore));
         inventory.setItem(18, GuiItems.item(Material.ARROW,
                 Component.text("Back", NamedTextColor.WHITE), List.of()));
         inventory.setItem(26, GuiItems.item(Material.BARRIER,
@@ -142,6 +157,15 @@ public final class PieceMenu implements Menu {
                     new TrimMenu(plugin, team, null).open(player);
                 } else {
                     new ColorMenu(plugin, team, null).open(player);
+                }
+            }
+            case 24 -> {
+                if (event.isRightClick()) {
+                    plugin.colors().removeFlag(team);
+                    plugin.flags().apply(team);
+                    new PieceMenu(plugin, team).open(player);
+                } else {
+                    new FlagMenu(plugin, team, 0).open(player);
                 }
             }
             case 18 -> new MainMenu(plugin).open(player);

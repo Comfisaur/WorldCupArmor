@@ -1,6 +1,7 @@
 package dev.comfi.worldcuparmor.gui;
 
 import dev.comfi.worldcuparmor.ArmorStyle;
+import dev.comfi.worldcuparmor.FlagService;
 import dev.comfi.worldcuparmor.WorldCupArmorPlugin;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -39,11 +40,12 @@ public final class MainMenu implements Menu {
     }
 
     private void build() {
+        // Only teams that exist on the scoreboard; configured colors for
+        // deleted teams stay in the config but are not listed.
         Set<String> names = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         for (Team team : Bukkit.getScoreboardManager().getMainScoreboard().getTeams()) {
             names.add(team.getName());
         }
-        names.addAll(plugin.colors().configuredTeams());
         if (names.isEmpty()) {
             inventory.setItem(22, GuiItems.item(Material.PAPER,
                     Component.text("No teams found", NamedTextColor.RED),
@@ -55,14 +57,26 @@ public final class MainMenu implements Menu {
                 break;
             }
             Map<EquipmentSlot, ArmorStyle> pieces = plugin.colors().pieces(name);
+            String flag = plugin.colors().flag(name);
+            Component flagLine = flag == null ? null
+                    : Component.text("Flag: ", NamedTextColor.GRAY)
+                            .append(plugin.flags().sprite(flag))
+                            .append(Component.text(" " + FlagService.pretty(flag), NamedTextColor.WHITE));
             ItemStack icon;
             if (pieces.isEmpty()) {
+                List<Component> lore = new ArrayList<>();
+                lore.add(Component.text("No disguise colors set", NamedTextColor.GRAY));
+                if (flagLine != null) {
+                    lore.add(flagLine);
+                }
+                lore.add(Component.text("Left click to set up pieces", NamedTextColor.YELLOW));
                 icon = GuiItems.item(Material.IRON_CHESTPLATE,
-                        Component.text(name, NamedTextColor.WHITE),
-                        List.of(Component.text("No disguise colors set", NamedTextColor.GRAY),
-                                Component.text("Left click to set up pieces", NamedTextColor.YELLOW)));
+                        Component.text(name, NamedTextColor.WHITE), lore);
             } else {
                 List<Component> lore = new ArrayList<>();
+                if (flagLine != null) {
+                    lore.add(flagLine);
+                }
                 for (EquipmentSlot piece : PIECE_ORDER) {
                     ArmorStyle style = pieces.get(piece);
                     if (style == null || style.color() == null) {
@@ -132,6 +146,7 @@ public final class MainMenu implements Menu {
             case 49 -> {
                 plugin.colors().load();
                 plugin.disguises().refreshAll();
+                plugin.flags().applyAll();
                 new MainMenu(plugin).open(player);
             }
             case 53 -> player.closeInventory();
