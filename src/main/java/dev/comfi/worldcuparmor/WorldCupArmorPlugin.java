@@ -14,6 +14,7 @@ public final class WorldCupArmorPlugin extends JavaPlugin {
 
     private TeamColorManager colorManager;
     private DisguiseService disguiseService;
+    private GlowService glowService;
     private HexInputListener hexInput;
 
     @Override
@@ -23,16 +24,23 @@ public final class WorldCupArmorPlugin extends JavaPlugin {
         colorManager.load();
         disguiseService = new DisguiseService(this, colorManager);
         disguiseService.start();
+        glowService = new GlowService(this);
+        glowService.start();
         hexInput = new HexInputListener(this);
         ProtocolLibrary.getProtocolManager().addPacketListener(new EquipmentListener(this));
+        ProtocolLibrary.getProtocolManager().addPacketListener(new GlowListener(this));
         getServer().getPluginManager().registerEvents(new MenuListener(), this);
         getServer().getPluginManager().registerEvents(disguiseService, this);
+        getServer().getPluginManager().registerEvents(glowService, this);
         getServer().getPluginManager().registerEvents(hexInput, this);
     }
 
     @Override
     public void onDisable() {
         ProtocolLibrary.getProtocolManager().removePacketListeners(this);
+        if (glowService != null) {
+            glowService.stop();
+        }
         if (disguiseService != null) {
             disguiseService.stop();
         }
@@ -54,6 +62,10 @@ public final class WorldCupArmorPlugin extends JavaPlugin {
 
     public DisguiseService disguises() {
         return disguiseService;
+    }
+
+    public GlowService glow() {
+        return glowService;
     }
 
     public HexInputListener hexInput() {

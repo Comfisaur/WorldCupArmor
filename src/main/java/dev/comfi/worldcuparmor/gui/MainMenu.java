@@ -1,5 +1,6 @@
 package dev.comfi.worldcuparmor.gui;
 
+import dev.comfi.worldcuparmor.ArmorStyle;
 import dev.comfi.worldcuparmor.WorldCupArmorPlugin;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -53,7 +54,7 @@ public final class MainMenu implements Menu {
             if (slot >= 45) {
                 break;
             }
-            Map<EquipmentSlot, Color> pieces = plugin.colors().pieces(name);
+            Map<EquipmentSlot, ArmorStyle> pieces = plugin.colors().pieces(name);
             ItemStack icon;
             if (pieces.isEmpty()) {
                 icon = GuiItems.item(Material.IRON_CHESTPLATE,
@@ -63,20 +64,25 @@ public final class MainMenu implements Menu {
             } else {
                 List<Component> lore = new ArrayList<>();
                 for (EquipmentSlot piece : PIECE_ORDER) {
-                    Color color = pieces.get(piece);
-                    if (color == null) {
+                    ArmorStyle style = pieces.get(piece);
+                    if (style == null || style.color() == null) {
                         lore.add(Component.text(PieceMenu.pieceName(piece) + ": real armor", NamedTextColor.DARK_GRAY));
                     } else {
-                        lore.add(Component.text(PieceMenu.pieceName(piece) + ": #" + String.format("%06X", color.asRGB()),
-                                TextColor.color(color.asRGB())));
+                        String trim = style.hasTrim() ? " (" + PieceMenu.trimName(style) + ")" : "";
+                        lore.add(Component.text(PieceMenu.pieceName(piece) + ": #"
+                                        + String.format("%06X", style.color().asRGB()) + trim,
+                                TextColor.color(style.color().asRGB())));
                     }
                 }
                 lore.add(Component.text("Left click to edit pieces", NamedTextColor.YELLOW));
                 lore.add(Component.text("Right click to remove all colors", NamedTextColor.RED));
-                Color chest = pieces.get(EquipmentSlot.CHEST);
-                Color display = chest != null ? chest : pieces.values().iterator().next();
-                icon = GuiItems.colored(Material.LEATHER_CHESTPLATE, display,
-                        Component.text(name, TextColor.color(display.asRGB())), lore);
+                ArmorStyle chest = pieces.get(EquipmentSlot.CHEST);
+                ArmorStyle display = chest != null && chest.color() != null ? chest
+                        : pieces.values().stream().filter(s -> s.color() != null).findFirst().orElse(null);
+                Color displayColor = display == null ? Color.WHITE : display.color();
+                icon = GuiItems.styled(Material.LEATHER_CHESTPLATE,
+                        display == null ? ArmorStyle.EMPTY.withColor(displayColor) : display,
+                        Component.text(name, TextColor.color(displayColor.asRGB())), lore);
             }
             teamSlots.put(slot, name);
             inventory.setItem(slot, icon);

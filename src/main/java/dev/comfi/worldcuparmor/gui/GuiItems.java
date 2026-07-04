@@ -1,11 +1,12 @@
 package dev.comfi.worldcuparmor.gui;
 
+import dev.comfi.worldcuparmor.ArmorStyle;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
-import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ArmorMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
 
@@ -26,15 +27,28 @@ final class GuiItems {
             lines.add(line.decoration(TextDecoration.ITALIC, false));
         }
         meta.lore(lines);
-        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_DYE);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_DYE, ItemFlag.HIDE_ARMOR_TRIM);
         item.setItemMeta(meta);
         return item;
     }
 
-    static ItemStack colored(Material material, Color color, Component name, List<Component> lore) {
+    static ItemStack styled(Material material, ArmorStyle style, Component name, List<Component> lore) {
         ItemStack item = item(material, name, lore);
-        if (item.getItemMeta() instanceof LeatherArmorMeta meta) {
-            meta.setColor(color);
+        ItemMeta meta = item.getItemMeta();
+        if (style.color() != null && meta instanceof LeatherArmorMeta leather) {
+            leather.setColor(style.color());
+        }
+        if (style.hasTrim() && meta instanceof ArmorMeta armor) {
+            armor.setTrim(style.trim());
+        }
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    static ItemStack selected(ItemStack item, boolean selected) {
+        if (selected) {
+            ItemMeta meta = item.getItemMeta();
+            meta.setEnchantmentGlintOverride(true);
             item.setItemMeta(meta);
         }
         return item;

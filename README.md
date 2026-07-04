@@ -15,9 +15,12 @@ Run `/worldcuparmor` (aliases `/wca`, `/armorgui`, permission `worldcuparmor.adm
 
 - Pick a team, then dye the helmet, chestplate, leggings and boots individually or all at once
 - Choose from the 16 dye colors or enter an exact hex code in chat
+- Shift click a piece (or the all pieces button) to pick an armor trim pattern and material
 - Toggle the whole system on or off and reload the config
 
-Colors persist in `config.yml` as `teams.<name>.<piece>: RRGGBB` and can be edited by hand.
+Players in spectator mode see everyone on a team with a glowing outline. The outline uses the scoreboard team color (`/team modify <name> color <color>`), and nobody outside spectator mode sees it.
+
+Colors persist in `config.yml` as `teams.<name>.<piece>: RRGGBB` and can be edited by hand. A piece with a trim is stored as a section with `color`, `trim-pattern` and `trim-material` keys instead.
 
 ## Building
 

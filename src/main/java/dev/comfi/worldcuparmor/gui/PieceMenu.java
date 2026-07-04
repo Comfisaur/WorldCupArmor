@@ -1,10 +1,10 @@
 package dev.comfi.worldcuparmor.gui;
 
+import dev.comfi.worldcuparmor.ArmorStyle;
 import dev.comfi.worldcuparmor.WorldCupArmorPlugin;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
-import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -13,6 +13,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -45,6 +46,13 @@ public final class PieceMenu implements Menu {
         };
     }
 
+    static String trimName(ArmorStyle style) {
+        String pattern = style.pattern().getKey().getKey();
+        String material = style.material().getKey().getKey();
+        return Character.toUpperCase(pattern.charAt(0)) + pattern.substring(1) + " / "
+                + Character.toUpperCase(material.charAt(0)) + material.substring(1);
+    }
+
     private static Material leatherFor(EquipmentSlot slot) {
         return switch (slot) {
             case HEAD -> Material.LEATHER_HELMET;
@@ -68,25 +76,33 @@ public final class PieceMenu implements Menu {
     private void build() {
         for (Map.Entry<Integer, EquipmentSlot> entry : PIECE_SLOTS.entrySet()) {
             EquipmentSlot slot = entry.getValue();
-            Color color = plugin.colors().color(team, slot);
+            ArmorStyle style = plugin.colors().style(team, slot);
             ItemStack icon;
-            if (color == null) {
-                icon = GuiItems.item(netheriteFor(slot),
-                        Component.text(pieceName(slot), NamedTextColor.WHITE),
-                        List.of(Component.text("No color set", NamedTextColor.GRAY),
-                                Component.text("Left click to pick a color", NamedTextColor.YELLOW)));
+            List<Component> lore = new ArrayList<>();
+            if (style == null || style.color() == null) {
+                lore.add(Component.text("No color set", NamedTextColor.GRAY));
+                if (style != null && style.hasTrim()) {
+                    lore.add(Component.text("Trim: " + trimName(style), NamedTextColor.GRAY));
+                }
+                lore.add(Component.text("Left click to pick a color", NamedTextColor.YELLOW));
+                lore.add(Component.text("Shift left click to pick a trim", NamedTextColor.AQUA));
+                icon = GuiItems.styled(netheriteFor(slot), style == null ? ArmorStyle.EMPTY : style,
+                        Component.text(pieceName(slot), NamedTextColor.WHITE), lore);
             } else {
-                icon = GuiItems.colored(leatherFor(slot), color,
-                        Component.text(pieceName(slot), NamedTextColor.WHITE),
-                        List.of(Component.text("Color #" + String.format("%06X", color.asRGB()), NamedTextColor.GRAY),
-                                Component.text("Left click to change the color", NamedTextColor.YELLOW),
-                                Component.text("Right click to clear this piece", NamedTextColor.RED)));
+                lore.add(Component.text("Color #" + String.format("%06X", style.color().asRGB()), NamedTextColor.GRAY));
+                lore.add(Component.text(style.hasTrim() ? "Trim: " + trimName(style) : "No trim set", NamedTextColor.GRAY));
+                lore.add(Component.text("Left click to change the color", NamedTextColor.YELLOW));
+                lore.add(Component.text("Shift left click to pick a trim", NamedTextColor.AQUA));
+                lore.add(Component.text("Right click to clear this piece", NamedTextColor.RED));
+                icon = GuiItems.styled(leatherFor(slot), style,
+                        Component.text(pieceName(slot), NamedTextColor.WHITE), lore);
             }
             inventory.setItem(entry.getKey(), icon);
         }
         inventory.setItem(22, GuiItems.item(Material.ARMOR_STAND,
                 Component.text("All pieces", NamedTextColor.GOLD),
-                List.of(Component.text("Click to dye all four pieces at once", NamedTextColor.YELLOW))));
+                List.of(Component.text("Click to dye all four pieces at once", NamedTextColor.YELLOW),
+                        Component.text("Shift click to trim all four pieces at once", NamedTextColor.AQUA))));
         inventory.setItem(18, GuiItems.item(Material.ARROW,
                 Component.text("Back", NamedTextColor.WHITE), List.of()));
         inventory.setItem(26, GuiItems.item(Material.BARRIER,
@@ -113,13 +129,21 @@ public final class PieceMenu implements Menu {
                 plugin.colors().removePiece(team, piece);
                 plugin.disguises().refreshTeam(team);
                 new PieceMenu(plugin, team).open(player);
+            } else if (event.isShiftClick()) {
+                new TrimMenu(plugin, team, piece).open(player);
             } else {
                 new ColorMenu(plugin, team, piece).open(player);
             }
             return;
         }
         switch (slot) {
-            case 22 -> new ColorMenu(plugin, team, null).open(player);
+            case 22 -> {
+                if (event.isShiftClick()) {
+                    new TrimMenu(plugin, team, null).open(player);
+                } else {
+                    new ColorMenu(plugin, team, null).open(player);
+                }
+            }
             case 18 -> new MainMenu(plugin).open(player);
             case 26 -> {
                 plugin.colors().removeTeam(team);

@@ -1,7 +1,6 @@
 package dev.comfi.worldcuparmor;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -26,7 +25,7 @@ public final class DisguiseService implements Listener {
 
     private final WorldCupArmorPlugin plugin;
     private final TeamColorManager colors;
-    private final Map<Integer, Map<EquipmentSlot, Color>> entityColors = new ConcurrentHashMap<>();
+    private final Map<Integer, Map<EquipmentSlot, ArmorStyle>> entityStyles = new ConcurrentHashMap<>();
     private BukkitTask task;
 
     public DisguiseService(WorldCupArmorPlugin plugin, TeamColorManager colors) {
@@ -42,22 +41,22 @@ public final class DisguiseService implements Listener {
         if (task != null) {
             task.cancel();
         }
-        entityColors.clear();
+        entityStyles.clear();
     }
 
-    public Map<EquipmentSlot, Color> colorsFor(int entityId) {
-        return entityColors.get(entityId);
+    public Map<EquipmentSlot, ArmorStyle> stylesFor(int entityId) {
+        return entityStyles.get(entityId);
     }
 
-    private Map<EquipmentSlot, Color> computeColors(Player player) {
+    private Map<EquipmentSlot, ArmorStyle> computeStyles(Player player) {
         Team team = Bukkit.getScoreboardManager().getMainScoreboard().getEntryTeam(player.getName());
         return team == null ? Map.of() : colors.pieces(team.getName());
     }
 
     private void tick() {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            Map<EquipmentSlot, Color> current = computeColors(player);
-            Map<EquipmentSlot, Color> previous = entityColors.get(player.getEntityId());
+            Map<EquipmentSlot, ArmorStyle> current = computeStyles(player);
+            Map<EquipmentSlot, ArmorStyle> previous = entityStyles.get(player.getEntityId());
             if (!Objects.equals(current.isEmpty() ? null : current, previous)) {
                 refresh(player);
             }
@@ -65,11 +64,11 @@ public final class DisguiseService implements Listener {
     }
 
     public void refresh(Player player) {
-        Map<EquipmentSlot, Color> pieces = computeColors(player);
+        Map<EquipmentSlot, ArmorStyle> pieces = computeStyles(player);
         if (pieces.isEmpty()) {
-            entityColors.remove(player.getEntityId());
+            entityStyles.remove(player.getEntityId());
         } else {
-            entityColors.put(player.getEntityId(), pieces);
+            entityStyles.put(player.getEntityId(), pieces);
         }
         Map<EquipmentSlot, ItemStack> equipment = new EnumMap<>(EquipmentSlot.class);
         for (EquipmentSlot slot : ARMOR_SLOTS) {
@@ -107,14 +106,14 @@ public final class DisguiseService implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        Map<EquipmentSlot, Color> pieces = computeColors(event.getPlayer());
+        Map<EquipmentSlot, ArmorStyle> pieces = computeStyles(event.getPlayer());
         if (!pieces.isEmpty()) {
-            entityColors.put(event.getPlayer().getEntityId(), pieces);
+            entityStyles.put(event.getPlayer().getEntityId(), pieces);
         }
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        entityColors.remove(event.getPlayer().getEntityId());
+        entityStyles.remove(event.getPlayer().getEntityId());
     }
 }
